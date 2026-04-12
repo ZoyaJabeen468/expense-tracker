@@ -1,7 +1,7 @@
 version: '3.8'
 services:
   web-jenkins:
-    build: .
+    image: zoyajabeen/expense-tracker:latest
     ports:
       - "3001:3000"
     volumes:
