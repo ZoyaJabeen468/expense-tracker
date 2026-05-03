@@ -26,14 +26,16 @@ pipeline {
         }
 
         stage('Run Application') {
-            steps {
-                echo 'Starting application...'
-                sh 'docker stop web-jenkins || true'
-                sh 'docker rm web-jenkins || true'
-                sh "docker run -d --name web-jenkins -p 3001:3000 -e MONGO_URI=${MONGO_URI} zoyajabeen/expense-tracker:latest"
-                sh 'sleep 10'
-            }
-        }
+    steps {
+        echo 'Starting application...'
+        sh 'docker stop web-jenkins || true'
+        sh 'docker rm web-jenkins || true'
+        sh '''docker run -d --name web-jenkins -p 3001:3000 \
+            -e MONGO_URI="mongodb://zoya_1234:zoya12345@cluster0-shard-00-00.v5eok.mongodb.net:27017/expensetracker?ssl=true&replicaSet=atlas-12ea3n-shard-0&authSource=admin" \
+            zoyajabeen/expense-tracker:latest'''
+        sh 'sleep 10'
+    }
+}
 
         stage('Test') {
             steps {
