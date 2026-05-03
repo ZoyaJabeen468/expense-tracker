@@ -26,27 +26,23 @@ pipeline {
         }
 
         stage('Run Application') {
-    steps {
-        echo 'Starting application...'
-        sh 'docker stop web-jenkins || true'
-        sh 'docker rm web-jenkins || true'
-        sh '''docker run -d --name web-jenkins -p 3001:3000 \
-            -e MONGO_URI="mongodb://zoya_1234:zoya12345@cluster0-shard-00-00.v5eok.mongodb.net:27017/expensetracker?ssl=true&replicaSet=atlas-12ea3n-shard-0&authSource=admin" \
-            zoyajabeen/expense-tracker:latest'''
-        sh 'sleep 10'
-    }
-}
+            steps {
+                echo 'Starting application...'
+                sh 'docker stop web-jenkins || true'
+                sh 'docker rm web-jenkins || true'
+                sh '''docker run -d --name web-jenkins -p 3001:3000 \
+                -e MONGO_URI="mongodb://zoya_1234:zoya12345@cluster0-shard-00-00.v5eok.mongodb.net:27017/expensetracker?ssl=true&replicaSet=atlas-12ea3n-shard-0&authSource=admin" \
+                zoyajabeen/expense-tracker:latest'''
+                sh 'sleep 10'
+            }
+        }
 
         stage('Test') {
             steps {
                 echo 'Running Selenium tests...'
-                sh 'docker stop selenium-tests || true'
-                sh 'docker rm selenium-tests || true'
                 sh 'rm -rf /tmp/expense-tracker-tests'
                 sh 'git clone https://github.com/ZoyaJabeen468/expense-tracker-tests.git /tmp/expense-tracker-tests'
-                sh 'docker build -t expense-tracker-tests /tmp/expense-tracker-tests'
-                sh 'docker run --name selenium-tests --network host expense-tracker-tests pytest test_expense_tracker.py -v --html=/tmp/report.html --self-contained-html || true'
-                sh 'docker cp selenium-tests:/tests/report.html /tmp/report.html || true'
+                sh 'cd /tmp/expense-tracker-tests && python3 -m pytest test_expense_tracker.py -v --html=/tmp/report.html --self-contained-html || true'
             }
         }
 
