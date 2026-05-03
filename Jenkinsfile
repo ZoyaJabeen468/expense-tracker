@@ -18,13 +18,6 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
-            steps {
-                echo 'Pulling Docker image...'
-                sh 'docker pull zoyajabeen/expense-tracker:latest'
-            }
-        }
-
         stage('Run Application') {
             steps {
                 echo 'Starting application...'
@@ -33,7 +26,7 @@ pipeline {
                 sh '''docker run -d --name web-jenkins -p 3001:3000 \
                 -e MONGO_URI="mongodb://zoya_1234:zoya12345@cluster0-shard-00-00.v5eok.mongodb.net:27017/expensetracker?ssl=true&replicaSet=atlas-12ea3n-shard-0&authSource=admin" \
                 zoyajabeen/expense-tracker:latest'''
-                sh 'sleep 10'
+                sh 'sleep 3'
             }
         }
 
@@ -42,7 +35,7 @@ pipeline {
                 echo 'Running Selenium tests...'
                 sh 'rm -rf /tmp/expense-tracker-tests'
                 sh 'git clone https://github.com/ZoyaJabeen468/expense-tracker-tests.git /tmp/expense-tracker-tests'
-                sh 'cd /tmp/expense-tracker-tests && python3 -m pytest test_expense_tracker.py -v --html=/tmp/report.html --self-contained-html || true'
+                sh 'export PATH=$PATH:/home/ubuntu/.local/bin && cd /tmp/expense-tracker-tests && python3 -m pytest test_expense_tracker.py -v --html=/tmp/report.html --self-contained-html || true'
             }
         }
 
