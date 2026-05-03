@@ -1,77 +1,84 @@
-// pipeline {
-//     agent any
-
-//     environment {
-//         MONGO_URI = "mongodb://zoya_1234:zoya12345@cluster0-shard-00-00.v5eok.mongodb.net:27017,cluster0-shard-00-01.v5eok.mongodb.net:27017,cluster0-shard-00-02.v5eok.mongodb.net:27017/expensetracker?ssl=true&replicaSet=atlas-12ea3n-shard-0&authSource=admin&appName=Cluster0"
-//     }
-
-//     stages {
-//         stage('Clone Repository') {
-//             steps {
-//                 echo 'Cloning repository from GitHub...'
-//                 git branch: 'main',
-//                     url: 'https://github.com/ZoyaJabeen468/expense-tracker.git'
-//             }
-//         }
-
-//         stage('Build Docker Image') {
-//             steps {
-//                 echo 'Building Docker image...'
-//                 sh 'docker build -t zoyajabeen/expense-tracker:latest .'
-//             }
-//         }
-
-//         stage('Run Application') {
-//             steps {
-//                 echo 'Starting application with Docker Compose...'
-//                 sh 'docker-compose -f docker-compose.jenkins.yml up -d --build'
-//             }
-//         }
-//     }
-
-//     post {
-//         success {
-//             echo 'Build successful!'
-//         }
-//         failure {
-//             echo 'Build failed!'
-//         }
-//     }
-// }
-
-
-
 pipeline {
     agent any
+
     triggers {
         githubPush()
     }
+
     environment {
-        MONGO_URI = "mongodb://zoya_1234:zoya12345@cluster0-shard-00-00.v5eok.mongodb.net:27017,cluster0-shard-00-01.v5eok.mongodb.net:27017,cluster0-shard-00-02.v5eok.mongodb.net:27017/expensetracker?ssl=true&replicaSet=atlas-12ea3n-shard-0&authSource=admin&appName=Cluster0"
+        MONGO_URI = "mongodb://zoya_1234:zoya12345@cluster0-shard-00-00.v5eok.mongodb.net:27017/expensetracker?ssl=true&replicaSet=atlas-12ea3n-shard-0&authSource=admin"
     }
+
     stages {
+
         stage('Clone Repository') {
             steps {
-                echo 'Cloning repository from GitHub...'
+                echo 'Cloning app repository...'
+                checkout scm
             }
         }
+
         stage('Build Docker Image') {
             steps {
                 echo 'Pulling Docker image...'
                 sh 'docker pull zoyajabeen/expense-tracker:latest'
             }
         }
+
         stage('Run Application') {
             steps {
                 echo 'Starting application...'
                 sh 'docker stop web-jenkins || true'
                 sh 'docker rm web-jenkins || true'
-                sh 'docker run -d --name web-jenkins -p 3001:3000 -e MONGO_URI="${MONGO_URI}" zoyajabeen/expense-tracker:latest'
+                sh "docker run -d --name web-jenkins -p 3001:3000 -e MONGO_URI=${MONGO_URI} zoyajabeen/expense-tracker:latest"
+                sh 'sleep 10'
             }
         }
+
+        stage('Test') {
+            steps {
+                echo 'Running Selenium tests...'
+                sh 'docker stop selenium-tests || true'
+                sh 'docker rm selenium-tests || true'
+                sh 'rm -rf /tmp/expense-tracker-tests'
+                sh 'git clone https://github.com/ZoyaJabeen468/expense-tracker-tests.git /tmp/expense-tracker-tests'
+                sh 'docker build -t expense-tracker-tests /tmp/expense-tracker-tests'
+                sh 'docker run --name selenium-tests --network host expense-tracker-tests pytest test_expense_tracker.py -v --html=/tmp/report.html --self-contained-html || true'
+                sh 'docker cp selenium-tests:/tests/report.html /tmp/report.html || true'
+            }
+        }
+
     }
+
     post {
-        success { echo 'Pipeline completed! App running on port 3001' }
-        failure { echo 'Build failed!' }
+        always {
+            script {
+                def status = currentBuild.result ?: 'SUCCESS'
+                def recipientEmail = sh(
+                    script: "git log -1 --format='%ae'",
+                    returnStdout: true
+                ).trim()
+
+                emailext(
+                    to: recipientEmail,
+                    subject: "Expense Tracker - Build #${BUILD_NUMBER} - ${status}",
+                    body: """
+                        <h2>Jenkins Pipeline Report</h2>
+                        <p><b>Project:</b> Expense Tracker</p>
+                        <p><b>Build Number:</b> ${BUILD_NUMBER}</p>
+                        <p><b>Status:</b> ${status}</p>
+                        <p><b>Triggered by:</b> ${recipientEmail}</p>
+                        <p>Check full logs at: <a href="${BUILD_URL}">${BUILD_URL}</a></p>
+                    """,
+                    mimeType: 'text/html'
+                )
+            }
+        }
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed!'
+        }
     }
 }
